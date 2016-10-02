@@ -116,22 +116,16 @@ ui = component { render, eval }
 
   eval :: Query ~> ComponentDSL State Query g
   eval (UpdateStock str next) = do
-    let mstock = fromString str
-    for mstock \stock ->
-      modify (_ {stock = stock})
-    modify recalculate
+    for (fromString str) \stock ->
+      modify (recalculate <<< _ {stock = stock})
     pure next
   eval (UpdateBond str next) = do
-    let mbond = fromString str
-    for mbond \bond ->
-      modify (_ {bond = bond})
-    modify recalculate
+    for (fromString str) \bond ->
+      modify (recalculate <<< _ {bond = bond})
     pure next
   eval (UpdatePurchase str next) = do
-    let mpurchase = fromString str
-    for mpurchase \purchase ->
-      modify (_ {purchase = purchase})
-    modify recalculate
+    for (fromString str) \purchase ->
+      modify (recalculate <<< _ {purchase = purchase})
     pure next
   eval (UpdateMix str next) = do
     let mmix = do n <- fromString str
@@ -139,8 +133,7 @@ ui = component { render, eval }
                   guard $ n <= 100
                   pure n
     for mmix \mix ->
-      modify (_ {mix = mix})
-    modify recalculate
+      modify (recalculate <<< _ {mix = mix})
     pure next
 
 recalculate :: State -> State
