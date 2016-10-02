@@ -5,11 +5,14 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.MonadZero (guard)
 
+import CSS as CSS
+
 import Data.Int (fromString, round, toNumber)
 import Data.Traversable (for)
 
 import Halogen (HalogenEffects, ComponentDSL, ComponentHTML, Component, runUI, component, modify)
 import Halogen.HTML.Indexed as H
+import Halogen.HTML.CSS.Indexed as C
 import Halogen.HTML.Events.Indexed as E
 import Halogen.HTML.Properties.Indexed as P
 import Halogen.Util (runHalogenAff, awaitBody)
@@ -54,7 +57,11 @@ ui = component { render, eval }
           ]
         , H.div_
           [ H.label
-            [ P.for "stock" ]
+            [ P.for "stock"
+            , C.style do
+              CSS.width $ CSS.px 100.0
+              CSS.display CSS.inlineBlock
+            ]
             [ H.text "Stock"]
           , H.input
             [ P.id_ "stock"
@@ -64,7 +71,11 @@ ui = component { render, eval }
           ]
         , H.div_
           [ H.label
-            [ P.for "bond" ]
+            [ P.for "bond"
+            , C.style do
+              CSS.width $ CSS.px 100.0
+              CSS.display CSS.inlineBlock
+            ]
             [ H.text "Bond"]
           , H.input
             [ P.id_ "bond"
@@ -74,7 +85,11 @@ ui = component { render, eval }
           ]
         , H.div_
           [ H.label
-            [ P.for "purchase" ]
+            [ P.for "purchase"
+            , C.style do
+              CSS.width $ CSS.px 100.0
+              CSS.display CSS.inlineBlock
+            ]
             [ H.text "Purchase"]
           , H.input
             [ P.id_ "purchase"
@@ -84,7 +99,11 @@ ui = component { render, eval }
           ]
         , H.div_
           [ H.label
-            [ P.for "mix" ]
+            [ P.for "mix"
+            , C.style do
+              CSS.width $ CSS.px 100.0
+              CSS.display CSS.inlineBlock
+            ]
             [ H.text "Mix"]
           , H.input
             [ P.id_ "mix"
