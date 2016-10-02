@@ -3,169 +3,74 @@ module Main (main) where
 import Prelude
 
 import Control.Monad.Eff (Eff)
-import Control.MonadZero (guard)
+import Data.Int (round)
+import DOM (DOM)
+import Flare (UI, runFlare, number, numberSlider, fieldset)
+import Signal.Channel (CHANNEL)
+import Test.FlareCheck (class Interactive, class Flammable, Renderable(SetText), flareCheck', spark)
 
-import CSS as CSS
+foreign import currency :: Number -> String
 
-import Data.Int (fromString, round, toNumber)
-import Data.Traversable (for)
+newtype Stock = Stock Number
+newtype Bond = Bond Number
+newtype Mix = Mix Number
+newtype Additional = Additional Number
+data Buy = Buy Stock Bond Mix
 
-import Halogen (HalogenEffects, ComponentDSL, ComponentHTML, Component, runUI, component, modify)
-import Halogen.HTML.Indexed as H
-import Halogen.HTML.CSS.Indexed as C
-import Halogen.HTML.Events.Indexed as E
-import Halogen.HTML.Properties.Indexed as P
-import Halogen.Util (runHalogenAff, awaitBody)
+instance flammableStock :: Flammable Stock where
+  spark = Stock <$> number "Stock" 6000.0
 
-type State
-  = { bond :: Int
-    , mix :: Int
-    , purchase :: Int
-    , stock :: Int
-    , newStock :: Int
-    , newBond :: Int
-    }
+instance flammableBond :: Flammable Bond where
+  spark = Bond <$> number "Bond" 4000.0
 
-data Query a
-  = UpdateStock String a
-  | UpdateBond String a
-  | UpdatePurchase String a
-  | UpdateMix String a
+instance flammableMix :: Flammable Mix where
+  spark = Mix <$> numberSlider "Mix" 0.0 1.0 0.01 0.6
 
-initialState :: State
-initialState =
-  { bond: 0
-  , stock: 0
-  , mix: 50
-  , purchase: 0
-  , newStock: 0
-  , newBond: 0
-  }
+instance flammableAdditional :: Flammable Additional where
+  spark = Additional <$> number "Additional" 500.0
 
-ui :: forall g. Component State Query g
-ui = component { render, eval }
+instance flammableBuy :: Flammable Buy where
+  spark = recalculate <$> spark <*> spark <*> spark <*> spark
+
+instance interactiveBuy :: Interactive Buy where
+  interactive = map (SetText <<< pretty)
+
+pretty :: Buy -> String
+pretty (Buy stock bond mix) = pretty' stock bond mix
+
+pretty' :: Stock -> Bond -> Mix -> String
+pretty' (Stock stock) (Bond bond) (Mix mix) =
+  "To reach a mix of "
+    <> show (round $ mix * 100.0)
+    <> "% stocks and "
+    <> show (round $ (1.0 - mix) * 100.0)
+    <> "% bonds, you should purchase "
+    <> currency stock
+    <> " in stock and "
+    <> currency bond
+    <> " in bonds."
+
+recalculate :: Stock -> Bond -> Mix -> Additional -> Buy
+recalculate stock bond mix (a@Additional additional) =
+  Buy (Stock newStock') (Bond $ additional - newStock') mix
   where
-  render :: State -> ComponentHTML Query
-  render state =
-    H.section_
-      [ H.h1_
-        [ H.text "Mix Calculator"
-        ]
-      , H.section_
-        [ H.h2_
-          [ H.text "Current"
-          ]
-        , H.div_
-          [ H.label
-            [ P.for "stock"
-            , C.style do
-              CSS.width $ CSS.px 100.0
-              CSS.display CSS.inlineBlock
-            ]
-            [ H.text "Stock"]
-          , H.input
-            [ P.id_ "stock"
-            , P.placeholder "stock"
-            , E.onValueChange (E.input UpdateStock)
-            ]
-          ]
-        , H.div_
-          [ H.label
-            [ P.for "bond"
-            , C.style do
-              CSS.width $ CSS.px 100.0
-              CSS.display CSS.inlineBlock
-            ]
-            [ H.text "Bond"]
-          , H.input
-            [ P.id_ "bond"
-            , P.placeholder "bond"
-            , E.onValueChange (E.input UpdateBond)
-            ]
-          ]
-        , H.div_
-          [ H.label
-            [ P.for "purchase"
-            , C.style do
-              CSS.width $ CSS.px 100.0
-              CSS.display CSS.inlineBlock
-            ]
-            [ H.text "Purchase"]
-          , H.input
-            [ P.id_ "purchase"
-            , P.placeholder "purchase"
-            , E.onValueChange (E.input UpdatePurchase)
-            ]
-          ]
-        , H.div_
-          [ H.label
-            [ P.for "mix"
-            , C.style do
-              CSS.width $ CSS.px 100.0
-              CSS.display CSS.inlineBlock
-            ]
-            [ H.text "Mix"]
-          , H.input
-            [ P.id_ "mix"
-            , P.inputType P.InputRange
-            , E.onValueChange (E.input UpdateMix)
-            ]
-          , H.span_
-            [ H.text $ show state.mix <> "% stock"
-            ]
-          , H.span_
-            [ H.text $ show (100 - state.mix) <> "% bond"
-            ]
-          ]
-        ]
-      , H.section_
-        [ H.h2_
-          [ H.text "Amount to Purchase"
-          ]
-        , H.div_
-          [ H.span_
-            [ H.text $ "Stock: " <> show state.newStock
-            ]
-          , H.span_
-            [ H.text $ "Bond: " <> show state.newBond
-            ]
-          ]
-        ]
-      ]
+  newStock' = newStock stock bond mix a
 
-  eval :: Query ~> ComponentDSL State Query g
-  eval (UpdateStock str next) = do
-    for (fromString str) \stock ->
-      modify (recalculate <<< _ {stock = stock})
-    pure next
-  eval (UpdateBond str next) = do
-    for (fromString str) \bond ->
-      modify (recalculate <<< _ {bond = bond})
-    pure next
-  eval (UpdatePurchase str next) = do
-    for (fromString str) \purchase ->
-      modify (recalculate <<< _ {purchase = purchase})
-    pure next
-  eval (UpdateMix str next) = do
-    let mmix = do n <- fromString str
-                  guard $ 0 <= n
-                  guard $ n <= 100
-                  pure n
-    for mmix \mix ->
-      modify (recalculate <<< _ {mix = mix})
-    pure next
+newStock :: Stock -> Bond -> Mix -> Additional -> Number
+newStock (Stock stock) (Bond bond) (Mix mix) (Additional additional) =
+  clamp 0.0 additional $ (stock + bond + additional) * mix - stock
 
-recalculate :: State -> State
-recalculate state =
-  state
-    { newStock = clamp 0 state.purchase newStock
-    , newBond = clamp 0 state.purchase $ state.purchase - newStock
-    }
-  where
-  total = state.stock + state.bond + state.purchase
-  newStock = round $ toNumber total * (toNumber state.mix / 100.0) - toNumber state.stock
+ui :: forall a. UI a String
+ui = fieldset "Mix Calculator" (pretty <$> spark)
 
-main :: Eff (HalogenEffects ()) Unit
-main = runHalogenAff do
-  body <- awaitBody
-  runUI ui initialState body
+main :: Eff (dom :: DOM, channel :: CHANNEL) Unit
+main = do
+  runFlare "input" "output" ui
+  checks
+
+checks :: Eff (dom :: DOM, channel :: CHANNEL) Unit
+checks = do
+  flareCheck' "checks" "pretty" pretty
+  flareCheck' "checks" "pretty'" pretty'
+  flareCheck' "checks" "recalculate" recalculate
+  flareCheck' "checks" "newStock" newStock

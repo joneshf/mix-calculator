@@ -1,7 +1,7 @@
 'use strict';
 
 var config
-  = { entry: './src/main'
+  = { entry: './src/index'
     , debug: true
     , devtool: 'source-map'
     , devServer: { contentBase: '.'
@@ -20,10 +20,6 @@ var config
                                     , pscArgs: { sourceMaps: true }
                                     , pscIde: true
                                     }
-                           }
-                         , { test: /\.js$/
-                           , loader: 'source-map-loader'
-                           , exclude: /node_modules|bower_components/
                            }
                          ]
               }
